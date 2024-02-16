@@ -1,15 +1,31 @@
 import os
+import sys
 import contextlib
 import pathlib as pl
 import uuid
+import time
 
 import numpy as np
 import dakota.environment as dakenv
 
 from osparc_filecomms import handshakers
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO, format="[%(filename)s:%(lineno)d] %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+sys.path.append(str(pl.Path(__file__).resolve().parent.parent))
+print(str(pl.Path(__file__).resolve().parent.parent))
+import tools.maps
+
+
 NOISE_MUS = [0.0, 0.0]
 NOISE_SIGMAS = [5.0, 10.0]
+
+POLLING_TIME = 0.1
 
 
 def main():
@@ -25,9 +41,16 @@ class DakotaService:
 
         self.input_dir_path = pl.Path(os.environ["DY_SIDECAR_PATH_INPUTS"])
         self.input2_dir_path = self.input_dir_path / "input_2"
+        self.input3_dir_path = self.input_dir_path / "input_3"
+
         self.output_dir_path = pl.Path(os.environ["DY_SIDECAR_PATH_OUTPUTS"])
         self.output1_dir_path = self.output_dir_path / "output_1"
+        self.output2_dir_path = self.output_dir_path / "output_2"
+
         self.dakota_conf_path = self.input2_dir_path / "dakota.in"
+
+        self.map_caller_file_path = self.output2_dir_path / "input_tasks.json"
+        self.map_reply_file_path = self.input3_dir_path / "output_tasks.json"
 
         self.caller_handshaker = handshakers.FileHandshaker(
             self.uuid,
@@ -39,18 +62,40 @@ class DakotaService:
     def start(self):
         self.caller_uuid = self.caller_handshaker.shake()
 
+        while not self.dakota_conf_path.exists():
+            time.sleep(POLLING_TIME)
         dakota_conf = self.dakota_conf_path.read_text()
+
+        self.map_object = tools.maps.oSparcFileMap(
+            self.map_reply_file_path.resolve(),
+            self.map_caller_file_path.resolve(),
+        )
         self.start_dakota(dakota_conf, self.output1_dir_path)
 
     def model_callback(self, dak_inputs):
         # print(f"evaluating: {dak_inputs}")
-        param_sets = [dak_input["cv"] for dak_input in dak_inputs]
-        param_labels = [dak_input["cv_labels"] for dak_input in dak_inputs]
-        response_labels = [
+        param_sets = [
+            {
+                label: value
+                for label, value in zip(
+                    dak_input["cv_labels"], dak_input["cv"]
+                )
+            }
+            for dak_input in dak_inputs
+        ]
+        all_response_labels = [
             dak_input["function_labels"] for dak_input in dak_inputs
         ]
-        obj_sets = list(map(self.model, param_sets))
-        dak_outputs = [{"fns": obj_set} for obj_set in obj_sets]
+        obj_sets = self.map_object.evaluate(param_sets)
+        dak_outputs = [
+            {
+                "fns": [
+                    obj_set[response_label]
+                    for response_label in response_labels
+                ]
+            }
+            for obj_set, response_labels in zip(obj_sets, all_response_labels)
+        ]
         # print(f"output: {dak_outputs}")
         return dak_outputs
 
@@ -63,10 +108,9 @@ class DakotaService:
         return y0, y1
 
     def start_dakota(self, dakota_conf, output_dir):
-        callbacks = {"model": self.model_callback}
-        study = dakenv.study(callbacks=callbacks, input_string=dakota_conf)
-
         with working_directory(output_dir):
+            callbacks = {"model": self.model_callback}
+            study = dakenv.study(callbacks=callbacks, input_string=dakota_conf)
             study.execute()
 
 
