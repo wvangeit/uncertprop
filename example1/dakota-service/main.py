@@ -17,7 +17,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 sys.path.append(str(pl.Path(__file__).resolve().parent.parent))
-print(str(pl.Path(__file__).resolve().parent.parent))
+print(
+    "Added to python search python: {str(pl.Path(__file__).resolve().parent.parent)}"
+)
 import tools.maps
 
 
