@@ -4,13 +4,12 @@ import contextlib
 import pathlib as pl
 import uuid
 import time
+import logging
 
 import numpy as np
 import dakota.environment as dakenv
 
 from osparc_filecomms import handshakers
-
-import logging
 
 logging.basicConfig(
     level=logging.INFO, format="[%(filename)s:%(lineno)d] %(message)s"

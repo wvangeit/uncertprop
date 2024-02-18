@@ -1,6 +1,9 @@
 export HDF5_USE_FILE_LOCKING := 'FALSE'
 
-clean: clean_nb clean_ds clean_tools clean_ms
+clean: clean_nb clean_ds clean_tools clean_ms clean_zip
+
+clean_zip:
+	@rm -rf zipfiles
 clean_nb:
 	@rm -rf notebook/inputs
 	@rm -rf notebook/outputs
@@ -50,4 +53,10 @@ map-service: link_io osparc_whl
 		DY_SIDECAR_PATH_INPUTS=./inputs \
 		DY_SIDECAR_PATH_OUTPUTS=./outputs \
 		python map.py
+zipfiles: clean
+	@mkdir zipfiles
+	zip -r zipfiles/dakota-service.zip dakota-service
+	zip -r zipfiles/model.zip model
+
+
 start: dakota-service notebook map-service
