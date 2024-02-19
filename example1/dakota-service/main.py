@@ -5,6 +5,7 @@ import pathlib as pl
 import uuid
 import time
 import logging
+import shutil
 
 import numpy as np
 import dakota.environment as dakenv
@@ -60,17 +61,25 @@ class DakotaService:
             is_initiator=True,
         )
 
+        self.clean_output(self.output1_dir_path)
+
+    def clean_output(self, dir_path):
+        for item in dir_path.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
+
     def start(self):
-
-        while not self.dakota_conf_path.exists():
-            time.sleep(POLLING_TIME)
-        dakota_conf = self.dakota_conf_path.read_text()
-
         self.map_object = tools.maps.oSparcFileMap(
             self.map_reply_file_path.resolve(),
             self.map_caller_file_path.resolve(),
         )
         self.caller_uuid = self.caller_handshaker.shake()
+
+        while not self.dakota_conf_path.exists():
+            time.sleep(POLLING_TIME)
+        dakota_conf = self.dakota_conf_path.read_text()
 
         self.start_dakota(dakota_conf, self.output1_dir_path)
 
