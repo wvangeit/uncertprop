@@ -56,7 +56,9 @@ map-service: link_io osparc_whl
 zipfiles: clean
 	@mkdir zipfiles
 	zip -r zipfiles/dakota-service.zip dakota-service
+	@cp ../requirements.txt model
 	zip -r zipfiles/model.zip model
+	@rm model/requirements.txt
 
 
 start: dakota-service notebook map-service

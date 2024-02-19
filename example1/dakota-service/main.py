@@ -61,7 +61,6 @@ class DakotaService:
         )
 
     def start(self):
-        self.caller_uuid = self.caller_handshaker.shake()
 
         while not self.dakota_conf_path.exists():
             time.sleep(POLLING_TIME)
@@ -71,6 +70,8 @@ class DakotaService:
             self.map_reply_file_path.resolve(),
             self.map_caller_file_path.resolve(),
         )
+        self.caller_uuid = self.caller_handshaker.shake()
+
         self.start_dakota(dakota_conf, self.output1_dir_path)
 
     def model_callback(self, dak_inputs):
